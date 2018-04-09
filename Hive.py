@@ -45,7 +45,8 @@ if __name__=='__main__':
     if localeArg.inputjson is None:
         dumpjson=1
     
-    workflowResolver()
+    startw=workflowResolver.workflowResolver()
+    startw.loadworkflow(localeArg.workflowName,localeArg.inputjson)
 
 
 
