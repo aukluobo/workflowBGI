@@ -57,7 +57,7 @@ class filter:
         fq2base=os.path.basename(fq2)
         fq1out="%s/%s.clean.fq" % (self.outdir,fq1base)
         fq2out="%s/%s.clean.fq" % (self.outdir,fq2base)
-        default={'input':[fq1,fq2],'parameter':self.parameter,'program':self.program,'resource':1,'output':[fq1out+".fq.gz",fq2out+".fq.gz"]}
+        default={'input':[fq1,fq2],'parameter':self.parameter,'program':self.program,'resource':"1G,1CPU",'output':[fq1out+".fq.gz",fq2out+".fq.gz"]}
         return default
 
 class alignment:
@@ -79,7 +79,7 @@ class alignment:
     def makedefault(self, fq1,fq2):
         outprefix=os.path.basename(fq1).split('.')
         outputbam="%s/%s.bam" % (self.outdir,outprefix[0])
-        default={'input':[fq1,fq2],'parameter':self.parameter,'program':self.program,'resource':12,'output':outputbam+".sort.bam"}
+        default={'input':[fq1,fq2],'parameter':self.parameter,'program':self.program,'resource':"12G,8CPU",'output':outputbam+".sort.bam"}
         return default                        
 
 
