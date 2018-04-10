@@ -33,12 +33,19 @@ class jobexecutor:
                 timecap=30
                 if recode == 0:
                     statedict[usedjobname]=submitid
-                else:
+                elif recode > 0:
                     resubmitid=self.rerunjob(recode,timecap,takecommand,usedjobname)
                     statedict[usedjobname]=resubmitid
+                else:
+                    globalcode=-1
+                    statedict[usedjobname]=submitid
+
                 self.dumpjson(statedict)
-                globalcode=self.checkcomplete(statedict[usedjobname])
-            statedict[usedjobname]='completed'
+                time.sleep(30)
+                if globalcode > 0:
+                    globalcode=self.checkcomplete(statedict[usedjobname],usedjobname)
+            if globalcode==0:
+                statedict[usedjobname]='completed'
             self.dumpjson(statedict)
         elif statedict['control'] == 'hold':
             self.hodljob()
@@ -56,7 +63,7 @@ class jobexecutor:
         out.write(commandshell+"\n")
         out.write("echo JobFinished")
         out.close()
-        qsubcommand="qsub -N %s -wd  -l vf=%sG,num_proc=%d -q %s " % (jobname,shelldir,self.vf,self.cpu,self.queue)
+        qsubcommand="qsub -N %s -wd %s -l vf=%sG,num_proc=%d -q %s " % (jobname,shelldir,self.vf,self.cpu,self.queue)
         if self.project is not None:
             qsubcommand+="-P %s" % (self.project)
         qsubcommand+=" %s/%s.sh" % (shelldir,jobname)
@@ -66,7 +73,7 @@ class jobexecutor:
             stdout=submit.stdout.read()
             stderr=submit.stderr.read()
             if stderr is not None:
-                return -1,None
+                return -1,stderr
             else:
                 return returncode,stdout
         else:
@@ -102,13 +109,19 @@ class jobexecutor:
                 stat=subprocess.Popen(cmd,shell=True,stderr=subprocess.PIPE,stdout=subprocess.PIPE,universal_newlines=True)
                 returncode=stat.wait(timeout=120)
                 if returncode==0:
-                    stdout=stat.stdout.read()
+                    stdout=stat.stdout.readlines()
                     stderr=stat.stderr.read()
                     if re.match(r'Following',stderr):
                         shelldir="%s/shell/%s/%s.sh.o%s" % (self.outdir,jobname,jobname,jobid)
                         alllog=open(shelldir,mode='r').readlines()
                         if re.match(r'JobFinished',alllog[-1]):
                             cplcode=0
+                        else:
+                            cplcode=1
+                    elif re.match(r'========',stdout[0]):
+                        pass
+                    else:
+                        pass
                 time.sleep(60)
             return cplcode
 
