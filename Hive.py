@@ -46,6 +46,8 @@ if __name__=='__main__':
         dumpjson=1
     
     startw=workflowResolver.workflowResolver()
+    startw.project=localeArg.preject
+    startw.queue=localeArg.queue
     startw.loadworkflow(localeArg.workflowName,localeArg.inputjson)
 
 
