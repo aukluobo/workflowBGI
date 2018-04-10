@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 import WGS
 import logging
 
@@ -9,8 +10,9 @@ class workflowResolver():
     def __init__(self):
         self.workflowName=""
         self.workflowJson=""
-        self.queue=""
-        self.project=""
+        self.queue="st.q"
+        self.project=None
+    
     def loadworkflow(self, workflowName,workflowJson=None):
         workflowparser=eval(workflowName).interface()
         jsoncontent={}
@@ -31,8 +33,21 @@ class workflowResolver():
                 commandshell,out1,out2=stepc.makeCommand(jsoncontent[step]['input'][0],jsoncontent[step]['input'][1])
                 logging.info("output:"+out1+"\n"+out2)
                 runjob=jobexcutor.jobexecutor()
-                runjob.runclusterjob(commandshell,stepc.outdirMain,jsoncontent[step]['resource'])
-
+                runjob.outdir=stepc.outdirMain
+                vf,cpu=self.checkjobresource(jsoncontent[step]['resource'])
+                runjob.vf=int(vf)
+                runjob.cpu=int(cpu)
+                runjob.queue=self.queue
+                runjob.project=self.project
+                runjob.runclusterjob(commandshell,step)
+    
+    def checkjobresource(self, resource):
+        alldecimal=re.findall(r'\d+',resource)
+        vf=int(alldecimal[0])
+        cpu=int(alldecimal[1])
+        if re.search(r'M|m',resource):
+            vf=vf/1024
+        return vf,cpu
                 
 
 
