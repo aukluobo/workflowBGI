@@ -7,11 +7,14 @@ import logging
 import json
 import time
 
+logging.getLogger().setLevel(logging.INFO)
+logging.basicConfig(format='%(asctime)s %(message)s')
+
 class jobexecutor:
     def __init__(self):
         self.command="echo please set command"
         self.outdir=os.path.abspath('.')
-        self.input="%s/state/state.json" %(self.outdir)
+        self.input="%s/state/state.json" % (self.outdir)
         self.output=self.input
         self.vf=1
         self.cpu=1
@@ -21,6 +24,7 @@ class jobexecutor:
     def runclusterjob(self,commandshell=None,jobname=None):
         takecommand=commandshell
         usedjobname=jobname
+        os.makedirs("%s/state" % (self.outdir),mode=0o755,exist_ok=True)
         if commandshell is None:
             takecommand=self.command
         if jobname is None:
@@ -63,10 +67,11 @@ class jobexecutor:
         out.write(commandshell+"\n")
         out.write("echo JobFinished")
         out.close()
-        qsubcommand="qsub -N %s -wd %s -l vf=%sG,num_proc=%d -q %s " % (jobname,shelldir,self.vf,self.cpu,self.queue)
+        qsubcommand="qsub -terse -N %s -wd %s -l vf=%sG,num_proc=%d -q %s " % (jobname,shelldir,self.vf,self.cpu,self.queue)
         if self.project is not None:
             qsubcommand+="-P %s" % (self.project)
         qsubcommand+=" %s/%s.sh" % (shelldir,jobname)
+        logging.info(qsubcommand)
         submit=subprocess.Popen(qsubcommand,shell=True,stderr=subprocess.PIPE,stdout=subprocess.PIPE,universal_newlines=True)
         returncode=submit.wait(timeout=120)
         if returncode == 0:
@@ -126,6 +131,7 @@ class jobexecutor:
             return cplcode
 
     def dumpjson(self,statedict,outputfile=None):
+        outputjson=outputfile
         if outputfile is None:
             outputjson=self.output
         try:
@@ -136,10 +142,11 @@ class jobexecutor:
             raise e
     
     def loadjson(self, inputfile=None):
+        inputjson=inputfile
         if inputfile is None:
             inputjson=self.input
         try:
-            jsondict=json.load(open(inputjson,mode='r').read())
+            jsondict=json.load(open(inputjson,mode='r'))
         except:
             jsondict={'control':'run'}
         return jsondict
