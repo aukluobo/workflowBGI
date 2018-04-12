@@ -47,6 +47,7 @@ class workflowResolver():
                     runjob.queue=self.queue
                     runjob.project=self.project
                     runjob.runclusterjob(commandshell,step)
+            logging.info("%s completed" % (workflowName))
     
     def checkjobresource(self, resource):
         alldecimal=re.findall(r'\d+',resource)
