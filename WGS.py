@@ -16,7 +16,8 @@ class filter:
         fq2base=os.path.basename(fq2)
         fq1out="%s/%s.clean.fq" % (self.outdir,fq1base)
         fq2out="%s/%s.clean.fq" % (self.outdir,fq2base)
-        command = "%s %s %s %s -o %s -C %s -D %s" % (self.program,self.parameter,fq1,fq2,self.outdir,fq1out,fq2out)
+        command = "%s %s -1 %s -2 %s -o %s -C %s -D %s" % (self.program,self.parameter,fq1,fq2,self.outdir,fq1out,fq2out)
+        print(self.parameter)
         os.makedirs(self.outdir,mode=0o755,exist_ok=True)
         return command,fq1out,fq2out
     def makedefault(self,fq1,fq2):
@@ -39,7 +40,7 @@ class alignment:
     def makeCommand(self, fq1,fq2):
         outprefix=os.path.basename(fq1).split('.')
         outputbam="%s/%s.bam" % (self.outdir,outprefix[0])
-        command="%s %s %s %s | %s view -Sb -o %s -\n" % (self.program,self.parameter,self.ref,fq1,fq2,self.samtools,outputbam)
+        command="%s %s %s %s %s | %s view -Sb -o %s -\n" % (self.program,self.parameter,self.ref,fq1,fq2,self.samtools,outputbam)
         commands="%s sort -@ 8 -O BAM -o %s.sort.bam %s\n%s index %s.sort.bam" % (self.samtools,outputbam,outputbam,self.samtools,outputbam)
         os.makedirs(self.outdir,mode=0o755,exist_ok=True)
         return command+commands,outputbam,outputbam+".sort.bam"
