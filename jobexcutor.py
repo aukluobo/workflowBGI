@@ -31,6 +31,10 @@ class jobexecutor:
             usedjobname="test"
         statedict=self.loadjson()
         if statedict['control'] == 'run':
+            if usedjobname in statedict:
+                prejobid=statedict[usedjobname]
+                logging.info("kill previous %s" % (usedjobname))
+                self.killjob(prejobid)
             globalcode=1
             while(globalcode > 0):
                 recode,submitid=self.submitjob(takecommand,usedjobname)
@@ -158,14 +162,15 @@ class jobexecutor:
                                 if re.match(r'Following',stderr):
                                     cplcode=0
                                 else:
-                                    livevf=re.findall(r'veme=\d+',[x for x in stdout if re.match(r'usage',x)][0])
-                                    if livevf >self.vf*1.5 or livevf >self.vf+5:
+                                    livevf=re.findall(r'vmem=\d+',[x for x in stdout if re.match(r'usage',x)][0])
+                                    vmem=int(livevf[0].replace('vmem=',''))
+                                    if vmem >self.vf*1.5 or vmem >self.vf+5:
                                         counttime+=120
                                     else:
                                         counttime=0
                                     if counttime > 1200:
-                                        newvf=livevf*1.5
-                                        logging.info("jobid %s have break memory for 20min : set %d G used %d G; kill and reqsub new vf %s G" % (sgejobid,self.vf,livevf,newvf))
+                                        newvf=vmem*1.5
+                                        logging.info("jobid %s have break memory for 20min : set %d G used %d G; kill and reqsub new vf %s G" % (sgejobid,self.vf,vmem,newvf))
                                         self.vf=newvf
                                         cplcode=1
                         else:
