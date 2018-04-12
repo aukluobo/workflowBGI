@@ -162,8 +162,11 @@ class jobexecutor:
                                 if re.match(r'Following',stderr):
                                     cplcode=0
                                 else:
-                                    livevf=re.findall(r'vmem=\d+',[x for x in stdout if re.match(r'usage',x)][0])
-                                    vmem=int(livevf[0].replace('vmem=',''))
+                                    livevf=re.findall(r'vmem=\d+\.\d+.',[x for x in stdout if re.match(r'usage',x)][0])
+                                    livevfs=livevf[0].replace('vmem=','')
+                                    vmem=float(livevfs[0:-1])
+                                    if livevfs[-1] == 'M':
+                                        vmem/=1024
                                     if vmem >self.vf*1.5 or vmem >self.vf+5:
                                         counttime+=120
                                     else:
