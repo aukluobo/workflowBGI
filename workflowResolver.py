@@ -37,8 +37,11 @@ class workflowResolver():
                     stepc.parameter=jsoncontent[step]['parameter']
                     stepc.program=jsoncontent[step]['program']
                     stepc.outdirMain=jsoncontent['outdir']
+                    inputcode=self.checkOutput(jsoncontent[step]['input'])
+                    if inputcode:
+                        sys.exit()
                     commandshell,out1,out2=stepc.makeCommand(jsoncontent[step]['input'][0],jsoncontent[step]['input'][1])
-                    logging.info("output:"+out1+"\n"+out2)
+                    logging.info("output:\n"+out1+"\n"+out2)
                     runjob=jobexcutor.jobexecutor()
                     runjob.outdir=stepc.outdirMain
                     vf,cpu=self.checkjobresource(jsoncontent[step]['resource'])
