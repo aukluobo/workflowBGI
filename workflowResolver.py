@@ -47,6 +47,10 @@ class workflowResolver():
                     runjob.queue=self.queue
                     runjob.project=self.project
                     runjob.runclusterjob(commandshell,step)
+                    outputNeedCheck=[out1,out2]
+                    outputcode=self.checkOutput(outputNeedCheck)
+                    if outputcode == 1:
+                        sys.exit()
             logging.info("%s completed" % (workflowName))
     
     def checkjobresource(self, resource):
@@ -56,6 +60,19 @@ class workflowResolver():
         if re.search(r'M|m',resource):
             vf=vf/1024
         return vf,cpu
+    
+    def checkOutput(self, out=[]):
+        rcCode=0
+        for output in out:
+            try:
+                stat=os.stat(output)
+                if stat.st_size == 0:
+                    rcCode=1
+            except:
+                rcCode=1
+                logging.info("output %s is not exists. check output dir and rerun." % (output))
+        return rcCode
+    
                 
 
 
