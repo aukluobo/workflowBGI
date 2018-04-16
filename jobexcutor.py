@@ -31,11 +31,25 @@ class jobexecutor:
             usedjobname="test"
         statedict=self.loadjson()
         if statedict['control'] == 'run':
+            globalcode=1
             if usedjobname in statedict:
                 prejobid=statedict[usedjobname]
-                logging.info("kill previous %s" % (usedjobname))
-                self.killjob(prejobid)
-            globalcode=1
+                shellcode=self.checkshell(commandshell,"%s/shell/%s/%s.sh" % (self.outdir,jobname,jobname))
+                #check previous shell and current shell if different,then kill job and run new shell
+                #if shell code is not the same then need to rerun de job anyway
+                if shellcode==1:
+                    self.killjob(prejobid)
+                    if prejobid != 'completed':
+                        logging.info("kill previous %s" % (usedjobname))
+                else:
+                    if prejobid == 'completed':
+                        globalcode=0
+                    else:
+                        palivecode=self.checkalive(prejobid)
+                        if palivecode==0:
+                            globalcode=self.checkcomplete(prejobid,usedjobname)
+                                    
+                           
             while(globalcode > 0):
                 recode,submitid=self.submitjob(takecommand,usedjobname)
                 timecap=30
@@ -83,7 +97,7 @@ class jobexecutor:
         if returncode == 0:
             stdout=submit.stdout.read()
             stderr=submit.stderr.read()
-            print(stdout+"\n"+stderr)
+            #print(stdout+"\n"+stderr)
             if stderr is not '':
                 return -1,stderr
             else:
@@ -106,9 +120,21 @@ class jobexecutor:
         return tmpsid
 
     def killjob(self,sgejobid):
-        cmd='qdel %s' % (sgejobid)
-        subprocess.Popen(cmd,shell=True,universal_newlines=True)
+        if sgejobid=='completed':
+            pass
+        else:
+            cmd='qdel %s' % (sgejobid)
+            subprocess.Popen(cmd,shell=True,universal_newlines=True)
 
+    def checkshell(self, newshell,oldshellfile):
+        oldshell=open(oldshellfile,mode='r').readlines()
+        totalshell=''
+        for line in oldshell[0:-1]:
+            totalshell+=re.sub(r'\s+',r'',line)
+        if newshell != totalshell:
+            return 1
+        else:
+            return 0
 
     def hodljob(self):
         pass
@@ -178,7 +204,9 @@ class jobexecutor:
                                         cplcode=1
                         else:
                             pass
-
+                    else:
+                        cplcode=0
+        return cplcode
 
     def checkcomplete(self, jobid,jobname):
         if re.match(r'fail',jobid):
