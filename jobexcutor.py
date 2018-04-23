@@ -20,9 +20,10 @@ class jobexecutor:
         self.cpu=1
         self.queue="st.q"
         self.project=None
+        self.lineSplit=200
     
     def runclusterjob(self,commandshell=None,jobname=None):
-        takecommand=commandshell
+        takecommand,part=self.makeRunCommand(commandshell)
         usedjobname=jobname
         os.makedirs("%s/state" % (self.outdir),mode=0o755,exist_ok=True)
         if commandshell is None:
@@ -34,7 +35,7 @@ class jobexecutor:
             globalcode=1
             if usedjobname in statedict:
                 prejobid=statedict[usedjobname]
-                shellcode=self.checkshell(commandshell,"%s/shell/%s/%s.sh" % (self.outdir,jobname,jobname))
+                shellcode=self.checkshell(takecommand,"%s/shell/%s/%s.sh" % (self.outdir,jobname,jobname))
                 #check previous shell and current shell if different,then kill job and run new shell
                 #if shell code is not the same then need to rerun de job anyway
                 if shellcode==1:
@@ -84,8 +85,7 @@ class jobexecutor:
         shelldir="%s/shell/%s" % (self.outdir,jobname)
         os.makedirs(shelldir,mode=0o755,exist_ok=True)
         out=open(shelldir+"/"+jobname+".sh",mode='w')
-        out.write(commandshell+"\n")
-        out.write("echo JobFinished")
+        out.write(commandshell)
         out.close()
         qsubcommand="qsub -terse -N %s.sh -wd %s -l vf=%sG,num_proc=%d -q %s " % (jobname,shelldir,self.vf,self.cpu,self.queue)
         if self.project is not None:
@@ -101,7 +101,7 @@ class jobexecutor:
             if stderr is not '':
                 return -1,stderr
             else:
-                return returncode,stdout.replace('\n','')
+                return returncode,re.sub(r'\..*',r'',stdout.replace('\n',''))
         else:
             return 1,None
     
@@ -125,6 +125,29 @@ class jobexecutor:
         else:
             cmd='qdel %s' % (sgejobid)
             subprocess.Popen(cmd,shell=True,universal_newlines=True)
+
+    def makeRunCommand(self, command):
+        commandLine=command.split('\n')
+        commandLineNum=len(commandLine)
+        modifiedCmd=[]
+        if commandLineNum > 1:
+            partNum=1
+            if commandLineNum >100:
+                partNum=int(commandLineNum/100)+1
+            cu=0
+            jobcu=1
+            for line in commandLine:
+                lineM="if [ $SGE_TASK_ID -eq %d ];then %s && echo  $SGE_TASK_ID JobFinished ;fi" % (jobcu,line)
+                modifiedCmd.append(lineM)
+                cu+=1
+                if cu >= partNum:
+                    cu=0
+                    jobcu+=1
+        else:
+            lineM="if [ $SGE_TASK_ID -eq 1 ];then %s && echo $SGE_TASK_ID JobFinished ;fi" % (command)
+            modifiedCmd.append(lineM)
+        return "\n".join(modifiedCmd),len(modifiedCmd)
+
 
     def checkshell(self, newshell,oldshellfile):
         oldshell=open(oldshellfile,mode='r').readlines()
