@@ -21,9 +21,12 @@ class jobexecutor:
         self.queue="st.q"
         self.project=None
         self.lineSplit=200
+        self.partAll=[]
     
     def runclusterjob(self,commandshell=None,jobname=None):
         takecommand,part=self.makeRunCommand(commandshell)
+        for i in range(1,part+1,1):
+            self.partAll.append(i)
         usedjobname=jobname
         os.makedirs("%s/state" % (self.outdir),mode=0o755,exist_ok=True)
         if commandshell is None:
@@ -34,7 +37,9 @@ class jobexecutor:
         if statedict['control'] == 'run':
             globalcode=1
             if usedjobname in statedict:
-                prejobid=statedict[usedjobname]
+                prejobidPart=statedict[usedjobname]
+                prejobid,partRecord=prejobidPart.split('-')
+                partRecordCheck=partRecord.split(',')
                 shellcode=self.checkshell(takecommand,"%s/shell/%s/%s.sh" % (self.outdir,jobname,jobname))
                 #check previous shell and current shell if different,then kill job and run new shell
                 #if shell code is not the same then need to rerun de job anyway
@@ -48,7 +53,9 @@ class jobexecutor:
                     else:
                         palivecode=self.checkalive(prejobid)
                         if palivecode==0:
-                            globalcode=self.checkcomplete(prejobid,usedjobname)
+                            globalcode,unfinishPart=self.checkcomplete(prejobid,partRecordCheck,usedjobname)
+                            if unfinishPart:
+                                self.partAll=unfinishPart
                                     
                            
             while(globalcode > 0):
@@ -68,7 +75,9 @@ class jobexecutor:
                 if globalcode > 0:
                     alivecode=self.checkalive(statedict[usedjobname])
                     if alivecode==0:
-                        globalcode=self.checkcomplete(statedict[usedjobname],usedjobname)
+                        globalcode,unfinishParta=self.checkcomplete(statedict[usedjobname],self.partAll,usedjobname)
+                        if unfinishParta:
+                            self.partAll=unfinishParta
             if globalcode==0:
                 statedict[usedjobname]='completed'
             self.dumpjson(statedict)
@@ -87,7 +96,8 @@ class jobexecutor:
         out=open(shelldir+"/"+jobname+".sh",mode='w')
         out.write(commandshell)
         out.close()
-        qsubcommand="qsub -terse -N %s.sh -wd %s -l vf=%sG,num_proc=%d -q %s " % (jobname,shelldir,self.vf,self.cpu,self.queue)
+        part=",".join(self.partAll)
+        qsubcommand="qsub -terse -N %s.sh -t %s -wd %s -l vf=%sG,num_proc=%d -q %s " % (jobname,part,shelldir,self.vf,self.cpu,self.queue)
         if self.project is not None:
             qsubcommand+="-P %s" % (self.project)
         qsubcommand+=" %s/%s.sh" % (shelldir,jobname)
@@ -132,7 +142,7 @@ class jobexecutor:
         modifiedCmd=[]
         if commandLineNum > 1:
             partNum=1
-            if commandLineNum >100:
+            if commandLineNum >self.lineSplit:
                 partNum=int(commandLineNum/100)+1
             cu=0
             jobcu=1
@@ -231,11 +241,12 @@ class jobexecutor:
                         cplcode=0
         return cplcode
 
-    def checkcomplete(self, jobid,jobname):
+    def checkcomplete(self,jobid,jobpart,jobname):
         if re.match(r'fail',jobid):
             return 1
         else:
             cplcode=-1
+            uncpPart=[]
             while(cplcode<0):
                 cmd="qstat -j %s" % jobid
                 stat=subprocess.Popen(cmd,shell=True,stderr=subprocess.PIPE,stdout=subprocess.PIPE,universal_newlines=True)
@@ -248,19 +259,26 @@ class jobexecutor:
                     stdout=stat.stdout.readlines()
                     stderr=stat.stderr.read()
                     if re.match(r'Following',stderr):
-                        shelldir="%s/shell/%s/%s.sh.o%s" % (self.outdir,jobname,jobname,jobid)
-                        alllog=open(shelldir,mode='r').readlines()
-                        if re.match(r'JobFinished',alllog[-1]):
-                            cplcode=0
-                        else:
-                            cplcode=1
+                        for part in jobpart:
+                            shelldir="%s/shell/%s/%s.sh.o%s.%s" % (self.outdir,jobname,jobname,jobid,part)
+                            try:
+                                alllog=open(shelldir,mode='r').readlines()
+                                if re.match(r'JobFinished',alllog[-1]):
+                                    if cplcode<0:
+                                        cplcode=0
+                                else:
+                                    uncpPart.append(part)
+                                    cplcode=1
+                            except:
+                                uncpPart.append(part)
+                                cplcode=1
                     elif re.match(r'========',stdout[0]):
                         pass
                     else:
                         pass
                 print(cplcode)
                 time.sleep(60)
-            return cplcode
+            return cplcode,uncpPart
 
     def dumpjson(self,statedict,outputfile=None):
         outputjson=outputfile
