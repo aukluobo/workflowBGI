@@ -31,8 +31,8 @@ if __name__=='__main__':
     parser.add_argument('--outdir',dest='outdir',type=str,default=pwd,help='the output directory,default current directory')
     parser.add_argument('--inputjson',dest='inputjson',type=str,default=None,help='the user specified json used in workflow. if used makejson to generate and modified the json, then no need to specified')
     parser.add_argument('--clusterQueue',dest='queue',type=str,default='st.q',help='the queue used to run the workflow, -q in qsub,default st.q')
-    parser.add_argument('--projectCode',dest='preject',type=str,help='the project code used to run in queue, -P in qsub')
-
+    parser.add_argument('--projectCode',dest='preject',type=str,help="the project code used to run in queue, -P in qsub. if you don't have one, don't set. but the job may not run.")
+    parser.add_argument('--fqlist',dest='fqList',type=str,help="the list file that contained four column: sampleID libraryID fq1path fq2path.")
     localeArg=parser.parse_args()
 
     dumpjson=0
@@ -43,14 +43,24 @@ if __name__=='__main__':
         showhelp("need set --workflow")
         sys.exit()
     if localeArg.runMode == 'makejson':
+        if localeArg.fqList is None:
+            showhelp("need to fqlist to makejson")
+            sys.exit()
         dumpjson=1
     
     print(localeArg)
     print(dumpjson)
 
+    supportWorkflow={'WGS':1}
+    try:
+        aa=supportWorkflow[localeArg.workflowName]
+    except:
+        logging.info("%s is not support now! try: %s " % (localeArg.workflowName,"\t".join(supportWorkflow.keys())))
+        sys.exit()
     startw=workflowResolver.workflowResolver()
     startw.project=localeArg.preject
     startw.queue=localeArg.queue
+    startw.fqList=localeArg.fqList
     startw.loadworkflow(localeArg.workflowName,dumpjson,localeArg.inputjson)
 
 
