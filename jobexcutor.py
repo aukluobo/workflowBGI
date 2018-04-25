@@ -20,17 +20,18 @@ class jobexecutor:
         self.cpu=1
         self.queue="st.q"
         self.project=None
-        self.lineSplit=200
+        self.lineSplit=100
         self.partAll=[]
     
     def runclusterjob(self,commandshell=None,jobname=None):
-        takecommand,part=self.makeRunCommand(commandshell)
-        for i in range(1,part+1,1):
-            self.partAll.append(i)
-        usedjobname=jobname
-        os.makedirs("%s/state" % (self.outdir),mode=0o755,exist_ok=True)
         if commandshell is None:
             takecommand=self.command
+        takecommand,part=self.makeRunCommand(commandshell)
+        for i in range(1,part+1,1):
+            self.partAll.append(str(i))
+        usedjobname=jobname
+        os.makedirs("%s/state" % (self.outdir),mode=0o755,exist_ok=True)
+        
         if jobname is None:
             usedjobname="test"
         statedict=self.loadjson()
@@ -62,10 +63,10 @@ class jobexecutor:
                 recode,submitid=self.submitjob(takecommand,usedjobname)
                 timecap=30
                 if recode == 0:
-                    statedict[usedjobname]=submitid
+                    statedict[usedjobname]=submitid+"-"+",".join(self.partAll)
                 elif recode > 0:
                     resubmitid=self.rerunjob(recode,timecap,takecommand,usedjobname)
-                    statedict[usedjobname]=resubmitid
+                    statedict[usedjobname]=resubmitid+"-"+",".join(self.partAll)
                 else:
                     globalcode=-1
                     statedict[usedjobname]=submitid
@@ -73,11 +74,14 @@ class jobexecutor:
                 self.dumpjson(statedict)
                 time.sleep(30)
                 if globalcode > 0:
-                    alivecode=self.checkalive(statedict[usedjobname])
+                    jobid=statedict[usedjobname].split('-')[0]
+                    alivecode=self.checkalive(jobid)
                     if alivecode==0:
-                        globalcode,unfinishParta=self.checkcomplete(statedict[usedjobname],self.partAll,usedjobname)
+                        globalcode,unfinishParta=self.checkcomplete(jobid,self.partAll,usedjobname)
                         if unfinishParta:
                             self.partAll=unfinishParta
+                    else:
+                        self.killjob(jobid)
             if globalcode==0:
                 statedict[usedjobname]='completed'
             self.dumpjson(statedict)
@@ -137,13 +141,16 @@ class jobexecutor:
             subprocess.Popen(cmd,shell=True,universal_newlines=True)
 
     def makeRunCommand(self, command):
-        commandLine=command.split('\n')
+        commandLine=re.sub(r'\s+$',r'',command).split('\n')
         commandLineNum=len(commandLine)
         modifiedCmd=[]
         if commandLineNum > 1:
             partNum=1
             if commandLineNum >self.lineSplit:
-                partNum=int(commandLineNum/100)+1
+                partNum=int(commandLineNum/self.lineSplit)+1
+            elif commandLineNum<self.lineSplit:
+                if self.lineSplit != 100:
+                    partNum=self.lineSplit
             cu=0
             jobcu=1
             for line in commandLine:
@@ -173,7 +180,7 @@ class jobexecutor:
         pass
     def checkalive(self, sgejobid):
         cplcode=-1
-        counttime=0
+        counttime={}
         tcount=0
         while(cplcode<0):
             time.sleep(120)
@@ -221,20 +228,27 @@ class jobexecutor:
                                 if re.match(r'Following',stderr):
                                     cplcode=0
                                 else:
-                                    livevf=re.findall(r'vmem=\d+\.\d+.',[x for x in stdout if re.match(r'usage',x)][0])
-                                    livevfs=livevf[0].replace('vmem=','')
-                                    vmem=float(livevfs[0:-1])
-                                    if livevfs[-1] == 'M':
-                                        vmem/=1024
-                                    if vmem >self.vf*1.5 or vmem >self.vf+5:
-                                        counttime+=120
-                                    else:
-                                        counttime=0
-                                    if counttime > 1200:
-                                        newvf=vmem*1.5
-                                        logging.info("jobid %s have break memory for 20min : set %d G used %d G; kill and reqsub new vf %s G" % (sgejobid,self.vf,vmem,newvf))
-                                        self.vf=newvf
-                                        cplcode=1
+                                    usageAll=[x for x in stdout if re.match(r'usage',x)]
+                                    for line in usageAll:
+                                        aa=line.split()
+                                        livevf=re.findall(r'vmem=\d+\.\d+.',line)
+                                        livevfs=livevf[0].replace('vmem=','')
+                                        vmem=float(livevfs[0:-1])
+                                        if livevfs[-1] == 'M':
+                                            vmem/=1024
+                                        if vmem >self.vf*1.5 or vmem >self.vf+5:
+                                            try:
+                                                counttime[aa[1]]+=120
+                                            except:
+                                                counttime[aa[1]]=120
+                                        else:
+                                            counttime[aa[1]]=0
+                                        if counttime[aa[1]] >= 1200:
+                                            newvf=vmem*1.5
+                                            logging.info("jobid %s have break memory for 20min : set %d G used %d G; kill and reqsub new vf %s G" % (sgejobid,self.vf,vmem,newvf))
+                                            self.vf=newvf
+                                            cplcode=1
+                                            break
                         else:
                             pass
                     else:
@@ -300,3 +314,44 @@ class jobexecutor:
         except:
             jsondict={'control':'run'}
         return jsondict
+
+
+if __name__ == '__main__':
+    if len(sys.argv) == 1:
+        print("use -h to check more parameter")
+        sys.exit()
+    parser=argparse.ArgumentParser(description="pipeline annotator help")
+    parser.add_argument('--shellfile',dest="shellFile",type=str,help="the shell file would be submit")
+    parser.add_argument('--line',dest="lineSplit",type=int,help="the line number contain in each split part. default split in 100 part. if you wish to run the whole shell in one job,set this to a number larger than the line number of the shell file and not equal 100")
+    parser.add_argument('--vf',dest="vf",type=int,help="memory used in each job [ only support GB ]")
+    parser.add_argument('--cpu',dest="cpu",type=int,help="cpu number set for each job")
+    parser.add_argument('--queue',dest="queue",type=str,help="the queue use to run the job")
+    parser.add_argument('--project',dest="project",type=str,help="the project code use to run the job. if the queue didn't need, don't set")
+    parser.add_argument('--outdir',dest="outdir",type=str,help="the output dir used to output the log and job state, default current directory")
+
+    localeArg=parser.parse_args()
+    pwd=os.path.abspath('.')
+
+    if localeArg.shellFile is None or localeArg.outdir is None or localeArg.queue is None:
+        print("shellFile or outdir or queue not set")
+        sys.exit()
+    startw=jobexecutor()
+    startw.outdir=localeArg.outdir
+    try:
+        command=open(localeArg.shellFile,mode='r').read()
+        startw.command=command
+    except IOError as e:
+        raise e
+    jobnamea=os.path.basename(localeArg.shellFile)
+    jobname=re.sub(r'\..*',r'',jobnamea)
+    if localeArg.vf is not None:
+        startw.vf=localeArg.vf
+    if localeArg.cpu is not None:
+        startw.cpu=localeArg.cpu
+    if localeArg.project is not None:
+        startw.project=localeArg.project
+    if localeArg.lineSplit is not None:
+        startw.lineSplit=localeArg.lineSplit
+    startw.runclusterjob(jobname=jobname)
+
+
