@@ -15,15 +15,35 @@ class workflowResolver():
         self.workflowJson=""
         self.queue="st.q"
         self.project=None
-    
+        self.fqList=None
+
+    def loadFqList(self, fqList):
+        try:
+            lines=open(self.fqList,mode='r').readlines()
+        except IOError as e:
+            raise e
+        stat={}
+        fq=[]
+        for line in lines:
+            linep=line.split()
+            fq1=linep[2]
+            fq1base=os.path.basename(fq1)
+            fq1prefix=re.sub(r'\..*$',r'',fq1base)
+            stat[fq1prefix]=linep
+            fq+=[linep[2],linep[3]]
+        return stat,fq
+
     def loadworkflow(self, workflowName,dumpjson,workflowJson=None):
+        stat,fq=self.loadFqList(self.fqList)
         workflowparser=eval(workflowName).interface()
+        workflowparser.fqList=fq
+        workflowparser.fqLink=stat
         jsoncontent={}
         if dumpjson>0:
             workflowparser.dumpjson()
         else:
             if workflowJson is None:
-                #workflowparser.dumpjson()
+                workflowparser.dumpjson()
                 jsoncontent=workflowparser.loadjson()
             else:
                 try:
@@ -40,8 +60,8 @@ class workflowResolver():
                     inputcode=self.checkOutput(jsoncontent[step]['input'])
                     if inputcode:
                         sys.exit()
-                    commandshell,out1,out2=stepc.makeCommand(jsoncontent[step]['input'][0],jsoncontent[step]['input'][1])
-                    logging.info("output:\n"+out1+"\n"+out2)
+                    commandshell,out=stepc.makeCommand(jsoncontent[step]['input'])
+                    logging.info("output:\n"+"\n".join(out))
                     runjob=jobexcutor.jobexecutor()
                     runjob.outdir=stepc.outdirMain
                     vf,cpu=self.checkjobresource(jsoncontent[step]['resource'])
@@ -49,11 +69,9 @@ class workflowResolver():
                     runjob.cpu=int(cpu)
                     runjob.queue=self.queue
                     runjob.project=self.project
+                    runjob.command=commandshell
                     runjob.runclusterjob(commandshell,step)
-                    outputNeedCheck=[out1,out2]
-                    outputcode=self.checkOutput(outputNeedCheck)
-                    if outputcode == 1:
-                        sys.exit()
+
             logging.info("%s completed" % (workflowName))
     
     def checkjobresource(self, resource):
