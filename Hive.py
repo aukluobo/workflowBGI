@@ -27,12 +27,13 @@ if __name__=='__main__':
     pwd=os.path.abspath('.')
     parser=argparse.ArgumentParser(description="pipeline annotator help")
     parser.add_argument('--mode',dest='runMode',type=str,help='how to action: run/makejson. run means executing the workflow. makejson means make a json with default parameter with defualt name')
-    parser.add_argument('--workflow',dest='workflowName',type=str,help='workflow name to excute,support: WGS')
+    parser.add_argument('--workflow',dest='workflowName',type=str,help='workflow name to excute,support: WGS Repeat_Annotation RNAseq  RNAref  RNAdenovo')
     parser.add_argument('--outdir',dest='outdir',type=str,default=pwd,help='the output directory,default current directory')
     parser.add_argument('--inputjson',dest='inputjson',type=str,default=None,help='the user specified json used in workflow. if used makejson to generate and modified the json, then no need to specified')
     parser.add_argument('--clusterQueue',dest='queue',type=str,default='st.q',help='the queue used to run the workflow, -q in qsub,default st.q')
     parser.add_argument('--projectCode',dest='preject',type=str,help="the project code used to run in queue, -P in qsub. if you don't have one, don't set. but the job may not run.")
     parser.add_argument('--fqlist',dest='fqList',type=str,help="the list file that contained four column: sampleID libraryID fq1path fq2path.")
+    parser.add_argument('--genomefa',dest='genomeFa',type=str,help="the genome fa used in workflow.\n HG19:/hwfssz1/BIGDATA_COMPUTING/GaeaProject/reference/hg19/hg19.fasta\n HG38:/hwfssz1/BIGDATA_COMPUTING/GaeaProject/reference/hg38/hg38.fa")
     localeArg=parser.parse_args()
 
     dumpjson=0
@@ -47,20 +48,29 @@ if __name__=='__main__':
             showhelp("need to fqlist to makejson")
             sys.exit()
         dumpjson=1
+    elif localeArg.runMode == 'run':
+        pass
+    else:
+        logging.info("unknow mode ==> %s" % (localeArg.runMode))
+        sys.exit()
     
     print(localeArg)
-    print(dumpjson)
 
-    supportWorkflow={'WGS':1}
+    supportWorkflow={'workflowExample':1,'WGS':1,'RNAseq':1,'RNAref':1,'RNAdenovo':1,'Repeat_Annotation':1}
     try:
         aa=supportWorkflow[localeArg.workflowName]
     except:
         logging.info("%s is not support now! try: %s " % (localeArg.workflowName,"\t".join(supportWorkflow.keys())))
         sys.exit()
+    
+    os.makedirs(localeArg.outdir,mode=0o755,exist_ok=True)
+    
     startw=workflowResolver.workflowResolver()
+    startw.outdir=localeArg.outdir
     startw.project=localeArg.preject
     startw.queue=localeArg.queue
     startw.fqList=localeArg.fqList
+    startw.genome=localeArg.genomeFa
     startw.loadworkflow(localeArg.workflowName,dumpjson,localeArg.inputjson)
 
 
