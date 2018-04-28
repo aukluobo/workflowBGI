@@ -22,7 +22,7 @@ class workflowResolver():
 
     def loadFqList(self, fqList):
         if fqList is None:
-            logging.info("fqlist is not defined; please use makejson to make a json and modified the input")
+            logging.info("fqlist is not defined; please use makejson to make a json and modified the input.then use the inputjson parameter to load the setting.")
             self.check=1
             return ["test_1.fq.gz","test_2.fq.gz"],{'a':["1","2","3","4"]}
         else:
@@ -56,10 +56,13 @@ class workflowResolver():
                 logging.info("END")
                 sys.exit()
             if workflowJson is None:
-                logging.info("use makejson mode to make a json and modified if neccesary then use the inputjson parameter")
-                sys.exit()
+                logging.info("No inputjson!! using default setting to run the workflow. Or you can use makejson mode to make a json and modified if neccesary then use the inputjson parameter")
+                logging.info("writing default setting to %s" % (workflowparser.output))
+                workflowparser.dumpjson()
+                jsoncontent=workflowparser.loadjson()
             else:
                 try:
+                    logging.info("loading setting in json : %s " % (workflowJson))
                     jsoncontent=workflowparser.loadjson(inputfile=workflowJson)
                 except ValueError as e:
                     raise e
