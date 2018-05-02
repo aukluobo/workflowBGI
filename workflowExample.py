@@ -114,6 +114,9 @@ class alignment(common):
                 inputq+=[fq1,fq2]
         default={'input':inputq,'parameter':parameter,'program':self.program,'resource':"12G,8CPU",'output':output}
         return default                        
+class piler(common):
+    def __init__(self, parameter_list):
+        pass
 
 
 
