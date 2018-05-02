@@ -2,7 +2,7 @@ import os
 import sys
 import re
 import logging
-
+from multiprocessing import Pool
 import jobexcutor
 import workflowExample
 
@@ -40,7 +40,7 @@ class workflowResolver():
                 stat[fq1prefix]=linep
                 fq+=[linep[2],linep[3]]
             return stat,fq
-
+    
     def loadworkflow(self, workflowName,dumpjson,workflowJson=None):
         stat,fq=self.loadFqList(self.fqList)
         workflowparser=eval(workflowName).interface()
@@ -67,31 +67,43 @@ class workflowResolver():
                 except ValueError as e:
                     raise e
             for stepL in workflowparser.step:
-                if len(stepL)==1:  #temporarily writing. will use multiprocess modoule to fix parallel steps
-                    step=stepL[0]
+                jobConcurrent=[]
+                for step in stepL:
                     if step in jsoncontent:
-                        stepb=eval(workflowName+'.'+step)
-                        stepc=stepb()
-                        stepc.parameter=jsoncontent[step]['parameter']
-                        stepc.program=jsoncontent[step]['program']
-                        stepc.outdirMain=jsoncontent['outdir']
-                        inputcode=self.checkOutput(jsoncontent[step]['input'])
-                        if inputcode:
-                            sys.exit()
-                        commandshell,out=stepc.makeCommand(jsoncontent[step]['input'])
-                        logging.info("output:\n"+"\n".join(out))
-                        runjob=jobexcutor.jobexecutor()
-                        runjob.outdir=stepc.outdirMain
-                        vf,cpu=self.checkjobresource(jsoncontent[step]['resource'])
-                        runjob.vf=int(vf)
-                        runjob.cpu=int(cpu)
-                        runjob.queue=self.queue
-                        runjob.project=self.project
-                        runjob.command=commandshell
-                        runjob.runclusterjob(commandshell,step)
-
+                        jobConcurrent.append([step,workflowName,jsoncontent])
+                #
+                processNum=len(jobConcurrent)
+                with Pool(processNum) as pool:
+                    subresult=pool.starmap(self.runJobParrallel,jobConcurrent)
+                    for x in subresult:
+                        print(x)
+                    #pool.close()
+                    #pool.join()
+                        
             logging.info("%s completed" % (workflowName))
-    
+
+    def runJobParrallel(self,step,workflowName,jsoncontent):
+        stepb=eval(workflowName+'.'+step)
+        stepc=stepb()
+        stepc.parameter=jsoncontent[step]['parameter']
+        stepc.program=jsoncontent[step]['program']
+        stepc.outdirMain=jsoncontent['outdir']
+        inputcode=self.checkOutput(jsoncontent[step]['input'])
+        if inputcode:
+            logging.info("%s not exists" % ("\t".join(jsoncontent[step]['input'])))
+            sys.exit()
+        commandshell,out=stepc.makeCommand(jsoncontent[step]['input'])
+        logging.info("output:\n"+"\n".join(out))
+        runjob=jobexcutor.jobexecutor()
+        runjob.outdir=stepc.outdirMain
+        vf,cpu=self.checkjobresource(jsoncontent[step]['resource'])
+        runjob.vf=int(vf)
+        runjob.cpu=int(cpu)
+        runjob.queue=self.queue
+        runjob.project=self.project
+        runjob.command=commandshell
+        runjob.runclusterjob(commandshell,step)
+
     def checkjobresource(self, resource):
         alldecimal=re.findall(r'\d+',resource)
         vf=int(alldecimal[0])
