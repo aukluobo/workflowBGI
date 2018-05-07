@@ -65,6 +65,7 @@ class jobexecutor:
                 if recode == 0:
                     statedict[usedjobname]=submitid+"-"+",".join(self.partAll)
                 elif recode > 0:
+                    logging.info("resubmit job because the first submit fail")
                     resubmitid=self.rerunjob(recode,timecap,takecommand,usedjobname)
                     statedict[usedjobname]=resubmitid+"-"+",".join(self.partAll)
                 else:
@@ -290,7 +291,7 @@ class jobexecutor:
                         pass
                     else:
                         pass
-                print(cplcode)
+                #print(cplcode)
                 time.sleep(60)
             return cplcode,uncpPart
 
