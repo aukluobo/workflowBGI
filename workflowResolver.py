@@ -43,6 +43,7 @@ class workflowResolver():
     
     def loadworkflow(self, workflowName,dumpjson,workflowJson=None):
         stat,fq=self.loadFqList(self.fqList)
+        logging.info("running workflow : %s " % (workflowName))
         workflowparser=eval(workflowName).interface()
         workflowparser.outdirMain=self.outdir
         workflowparser.fqList=fq
@@ -52,10 +53,10 @@ class workflowResolver():
         if dumpjson>0:
             workflowparser.dumpjson()
         else:
-            if self.check > 0 :
-                logging.info("END")
-                sys.exit()
             if workflowJson is None:
+                if self.check > 0 :
+                    logging.info("END")
+                    sys.exit()
                 logging.info("No inputjson!! using default setting to run the workflow. Or you can use makejson mode to make a json and modified if neccesary then use the inputjson parameter")
                 logging.info("writing default setting to %s" % (workflowparser.output))
                 workflowparser.dumpjson()
@@ -70,13 +71,17 @@ class workflowResolver():
                 jobConcurrent=[]
                 for step in stepL:
                     if step in jsoncontent:
+                        logging.info("running step : %s " % (step))
                         jobConcurrent.append([step,workflowName,jsoncontent])
                 #
                 processNum=len(jobConcurrent)
                 with Pool(processNum) as pool:
                     subresult=pool.starmap(self.runJobParrallel,jobConcurrent)
+                    i=0
                     for x in subresult:
                         print(x)
+                        print("finish %d" % (i))
+                        i+=1
                     #pool.close()
                     #pool.join()
                         
@@ -90,7 +95,7 @@ class workflowResolver():
         stepc.outdirMain=jsoncontent['outdir']
         inputcode=self.checkOutput(jsoncontent[step]['input'])
         if inputcode:
-            logging.info("%s not exists" % ("\t".join(jsoncontent[step]['input'])))
+            #logging.info("%s not exists" % ("\t".join(jsoncontent[step]['input'])))
             sys.exit()
         commandshell,out=stepc.makeCommand(jsoncontent[step]['input'])
         logging.info("output:\n"+"\n".join(out))
@@ -101,8 +106,9 @@ class workflowResolver():
         runjob.cpu=int(cpu)
         runjob.queue=self.queue
         runjob.project=self.project
-        runjob.command=commandshell
-        runjob.runclusterjob(commandshell,step)
+        for subCommandShell in commandshell:
+            runjob.command=subCommandShell
+            runjob.runclusterjob(subCommandShell,step)
 
     def checkjobresource(self, resource):
         alldecimal=re.findall(r'\d+',resource)
@@ -114,14 +120,25 @@ class workflowResolver():
     
     def checkOutput(self, out=[]):
         rcCode=0
-        for output in out:
+        if type(out) is list:
+            for output in out:
+                rc=self.checkOutput(output)
+                rcCode+=rc
+        elif type(out) is dict:
+            for key in out.keys():
+                rc=self.checkOutput(out[key])
+                rcCode+=rc
+        elif type(out) is str:
             try:
-                stat=os.stat(output)
+                stat=os.stat(out)
                 if stat.st_size == 0:
                     rcCode=1
             except:
                 rcCode=1
-                logging.info("output %s is not exists. check output dir and rerun." % (output))
+                logging.info("File: %s is not exists. check output dir and rerun." % (output))
+        else:
+            print(type(out))
+            logging.info("unkown type")
         return rcCode
     
                 
