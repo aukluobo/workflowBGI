@@ -106,6 +106,8 @@ class workflowResolver():
         runjob.cpu=int(cpu)
         runjob.queue=self.queue
         runjob.project=self.project
+        expectLine=len(commandshell)
+        logging.info("expect %d commandline in step %s " % (expectLine,step))
         for subCommandShell in commandshell:
             runjob.command=subCommandShell
             runjob.runclusterjob(subCommandShell,step)
