@@ -155,14 +155,14 @@ class jobexecutor:
             cu=0
             jobcu=1
             for line in commandLine:
-                lineM="if [ $SGE_TASK_ID -eq %d ];then %s && echo  $SGE_TASK_ID JobFinished ;fi" % (jobcu,line)
+                lineM="if [ $SGE_TASK_ID -eq %d ];then %s && echo JobFinished $SGE_TASK_ID;fi" % (jobcu,line)
                 modifiedCmd.append(lineM)
                 cu+=1
                 if cu >= partNum:
                     cu=0
                     jobcu+=1
         else:
-            lineM="if [ $SGE_TASK_ID -eq 1 ];then %s && echo $SGE_TASK_ID JobFinished ;fi" % (command)
+            lineM="if [ $SGE_TASK_ID -eq 1 ];then %s && echo JobFinished $SGE_TASK_ID;fi" % (command)
             modifiedCmd.append(lineM)
         return "\n".join(modifiedCmd),len(modifiedCmd)
 
