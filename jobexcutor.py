@@ -199,7 +199,7 @@ class jobexecutor:
                 if stderrall is not '':
                     pass
                 else:
-                    jobrecord=[x for x in stdoutall if re.match(re.escape(sgejobid),x)]
+                    jobrecord=[x for x in stdoutall if re.match(re.escape(sgejobid),re.sub(r'^\s+',r'',x))]
                     if jobrecord:
                         jobrecordarray=jobrecord[0].split()
                         print(jobrecordarray[4])
