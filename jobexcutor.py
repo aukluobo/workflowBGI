@@ -172,7 +172,8 @@ class jobexecutor:
         totalshell=''
         for line in oldshell[0:-1]:
             totalshell+=re.sub(r'\s+',r'',line)
-        if newshell != totalshell:
+        tnewshell=re.sub(r'\s+',r'',newshell)
+        if tnewshell != totalshell:
             return 1
         else:
             return 0
