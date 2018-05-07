@@ -48,10 +48,10 @@ class filter(common):
                 fq1out="%s/%s/%s.clean.fq" % (self.outdir,fq1basesub,fq1base)
                 fq2out="%s/%s/%s.clean.fq" % (self.outdir,fq1basesub,fq2base)
                 outdir="%s/%s" % (self.outdir,fq1basesub)
+                os.makedirs(outdir,mode=0o755,exist_ok=True)
                 command += "%s %s -1 %s -2 %s -o %s -C %s -D %s\n" % (self.program,self.parameter,fq1,fq2,outdir,fq1out,fq2out)
                 output.append(fq1out+".gz")
                 output.append(fq2out+".gz")
-        os.makedirs(outdir,mode=0o755,exist_ok=True)
         return [command],output
     def makedefault(self,inputfq):
         pair=self.makepair(inputfq)
