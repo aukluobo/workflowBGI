@@ -44,11 +44,12 @@ class filter(common):
                 fq2=pair[keys][readc[1]]
                 fq1base=os.path.basename(fq1)
                 fq2base=os.path.basename(fq2)
-                fq1out="%s/%s.clean.fq" % (self.outdir,fq1base)
-                fq2out="%s/%s.clean.fq" % (self.outdir,fq2base)
+                fq1basesub=re.sub(r'_\d\..*',r'',fq1base)
+                fq1out="%s/%s/%s.clean.fq" % (self.outdir,fq1basesub,fq1base)
+                fq2out="%s/%s/%s.clean.fq" % (self.outdir,fq1basesub,fq2base)
                 command += "%s %s -1 %s -2 %s -o %s -C %s -D %s\n" % (self.program,self.parameter,fq1,fq2,self.outdir,fq1out,fq2out)
-                output.append(fq1out+".fq.gz")
-                output.append(fq2out+".fq.gz")
+                output.append(fq1out+".gz")
+                output.append(fq2out+".gz")
         os.makedirs(self.outdir,mode=0o755,exist_ok=True)
         return [command],output
     def makedefault(self,inputfq):
@@ -62,10 +63,11 @@ class filter(common):
                 fq2=pair[keys][readc[1]]
                 fq1base=os.path.basename(fq1)
                 fq2base=os.path.basename(fq2)
-                fq1out="%s/%s.clean.fq" % (self.outdir,fq1base)
-                fq2out="%s/%s.clean.fq" % (self.outdir,fq2base)
+                fq1basesub=re.sub(r'_\d\..*',r'',fq1base)
+                fq1out="%s/%s/%s.clean.fq" % (self.outdir,fq1basesub,fq1base)
+                fq2out="%s/%s/%s.clean.fq" % (self.outdir,fq1basesub,fq2base)
                 inputd+=[fq1,fq2]
-                output+=[fq1out+".fq.gz",fq2out+".fq.gz"]
+                output+=[fq1out+".gz",fq2out+".gz"]
         default={'input':inputd,'parameter':self.parameter,'program':self.program,'resource':"1G,1CPU",'output':output}
         return default
 
@@ -105,13 +107,13 @@ class alignment(common):
             readc=sorted(pair[keys].keys())
             if len(readc)==2:
                 fq1=pair[keys][readc[0]]
-                fq2=pair[keys][readc[1]]
                 outprefix=os.path.basename(fq1).split('.')
                 parameter1=self.parameter.replace("test",outprefix[0]).replace("lib",self.fqLink[outprefix[0]][1]).replace("sampleid",self.fqLink[outprefix[0]][0])
                 parameter.append(parameter1)
                 outputbam="%s/%s.bam" % (self.outdir,outprefix[0])
                 output+=[outputbam,outputbam+".sort.bam"]
-                inputq+=[fq1,fq2]
+        fi=filter()
+        out1,inputq=fi.makeCommand(inputfq)
         default={'input':inputq,'parameter':parameter,'program':self.program,'resource':"12G,8CPU",'output':output}
         return default                        
 class piler(common):
@@ -155,6 +157,7 @@ class interface(common):
                     stepdict = json.dumps(astepo.makedefault(self.fqList))
                     #stepdict = json.dumps(astepjson)
                     out.write("\"%s\":%s,\n" % (step,stepdict))
+            out.write("\"ref\":\"%s\",\n" % (self.ref))
             out.write("\"outdir\":\"%s\"\n" % (self.outdirMain))
             out.write("}\n")
             out.close()
