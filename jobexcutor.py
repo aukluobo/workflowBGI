@@ -183,6 +183,7 @@ class jobexecutor:
         cplcode=-1
         counttime={}
         tcount=0
+        logging.info("checkalive "+sgejobid)
         while(cplcode<0):
             time.sleep(120)
             qstatuser="qstat"
@@ -201,6 +202,7 @@ class jobexecutor:
                     jobrecord=[x for x in stdoutall if re.match(re.escape(sgejobid),x)]
                     if jobrecord:
                         jobrecordarray=jobrecord[0].split()
+                        print(jobrecordarray[4])
                         if jobrecordarray[4] == 'qw':
                             pass
                         elif jobrecordarray[4] == 'Eqw':
@@ -254,6 +256,7 @@ class jobexecutor:
                             pass
                     else:
                         cplcode=0
+            print("checkalive code %d" % (cplcode))
         return cplcode
 
     def checkcomplete(self,jobid,jobpart,jobname):
@@ -291,7 +294,7 @@ class jobexecutor:
                         pass
                     else:
                         pass
-                #print(cplcode)
+                print(cplcode)
                 time.sleep(60)
             return cplcode,uncpPart
 
