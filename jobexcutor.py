@@ -14,7 +14,7 @@ class jobexecutor:
     def __init__(self):
         self.command="echo please set command"
         self.outdir=os.path.abspath('.')
-        self.input="%s/state/state.json" % (self.outdir)
+        self.input="state.json"
         self.output=self.input
         self.vf=1
         self.cpu=1
@@ -24,6 +24,8 @@ class jobexecutor:
         self.partAll=[]
     
     def runclusterjob(self,commandshell=None,jobname=None):
+        self.input=self.outdir+"/state/"+self.input
+        self.output=self.input
         if commandshell is None:
             takecommand=self.command
         takecommand,part=self.makeRunCommand(commandshell)
@@ -300,12 +302,15 @@ class jobexecutor:
             return cplcode,uncpPart
 
     def dumpjson(self,statedict,outputfile=None):
+        self.output=self.input
         outputjson=outputfile
         if outputfile is None:
             outputjson=self.output
         try:
-            out=open(outputjson,mode='w')                      
-            json.dump(statedict,out)
+            oldjsondict=self.loadjson(outputjson)
+            out=open(outputjson,mode='w')
+            oldjsondict.update(statedict)                      
+            json.dump(statedict,out,indent=4)#when step run parrallel, this file will be in wrong format. need to load the file first and then write the other in the same file
             out.close()
         except IOError as e:
             raise e
