@@ -4,6 +4,9 @@ import re
 import json
 import argparse
 import logging
+bindir = os.path.abspath(os.path.dirname(sys.argv[0]))
+sys.path.append(bindir+"/subworkflow")
+
 
 logging.getLogger().setLevel(logging.INFO)
 logging.basicConfig(format='%(asctime)s %(message)s')
@@ -43,9 +46,10 @@ if __name__=='__main__':
     if localeArg.workflowName is None:
         showhelp("need set --workflow")
         sys.exit()
+
     if localeArg.runMode == 'makejson':
-        if localeArg.fqList is None:
-            showhelp("need to fqlist to makejson")
+        if localeArg.fqList is None and localeArg.genomeFa is None:
+            showhelp("need fqlist or genome to makejson")
             sys.exit()
         dumpjson=1
     elif localeArg.runMode == 'run':
@@ -62,11 +66,11 @@ if __name__=='__main__':
     except:
         logging.info("%s is not support now! try: %s " % (localeArg.workflowName,"\t".join(supportWorkflow.keys())))
         sys.exit()
-    
-    os.makedirs(localeArg.outdir,mode=0o755,exist_ok=True)
+    absoutdir=os.path.abspath(localeArg.outdir)
+    os.makedirs(absoutdir,mode=0o755,exist_ok=True)
     
     startw=workflowResolver.workflowResolver()
-    startw.outdir=localeArg.outdir
+    startw.outdir=absoutdir
     startw.project=localeArg.preject
     startw.queue=localeArg.queue
     startw.fqList=localeArg.fqList
