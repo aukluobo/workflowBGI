@@ -20,6 +20,8 @@ class workflowResolver():
         self.fqList=None
         self.genome=None
         self.check=0
+        self.stat={}
+        self.fq=[]
 
     def loadFqList(self, fqList):
         if fqList is None:
@@ -43,12 +45,12 @@ class workflowResolver():
             return stat,fq
     
     def loadworkflow(self, workflowName,dumpjson,workflowJson=None):
-        stat,fq=self.loadFqList(self.fqList)
+        self.stat,self.fq=self.loadFqList(self.fqList)
         logging.info("running workflow : %s " % (workflowName))
         workflowparser=eval(workflowName).interface()
         workflowparser.outdirMain=self.outdir
-        workflowparser.fqList=fq
-        workflowparser.fqLink=stat
+        workflowparser.fqList=self.fq
+        workflowparser.fqLink=self.stat
         workflowparser.ref=self.genome
         jsoncontent={}
         if dumpjson>0:
@@ -111,6 +113,10 @@ class workflowResolver():
         stepc.parameter=jsoncontent[step]['parameter']
         stepc.program=jsoncontent[step]['program']
         stepc.outdirMain=jsoncontent['outdir']
+        stepc.fqList=self.fq
+        stepc.fqLink=self.stat
+        stepc.ref=self.genome
+        stepc.outdir=stepc.outdirMain+"/"+stepc.outdir
         inputcode=self.checkOutput(jsoncontent[step]['input'])
         if inputcode:
             #logging.info("%s not exists" % ("\t".join(jsoncontent[step]['input'])))
