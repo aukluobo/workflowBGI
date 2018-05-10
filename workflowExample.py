@@ -88,7 +88,7 @@ class alignment(common):
         self.parameter=[""" mem -t 8 -M -Y -R "@RG\tID:test\tPL:COMPLETE\tPU:lib\tLB:sampleid-WGSPE100\tSM:PE100-2\tCN:BGI" """]
         self.program="/ldfssz1/BC_WGS/pipeline/DNA_Human_WGS_2017b/bin/bwa-0.7.15/bwa"
         self.samtools="/ldfssz1/BC_WGS/pipeline/DNA_Human_WGS_2017b/bin/samtools-1.3.1/samtools"      
-        self.outdir="%s/WGS/bam" % (self.outdirMain)
+        self.outdir="WGS/bam"
 
     def makeCommand(self,inputfq):
         pair=self.makepair(inputfq)
@@ -131,6 +131,7 @@ class alignment(common):
                 outputbam="%s/%s.bam" % (self.outdir,outprefix[0])
                 output+=[outputbam,outputbam+".sort.bam"]
         fi=filter()
+        fi.outdir=self.outdir
         out1,inputq=fi.makeCommand(inputfq)
         default={'input':inputq,'parameter':parameter,'program':self.program,'resource':"12G,8CPU",'output':output}
         return default                        
