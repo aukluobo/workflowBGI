@@ -2,6 +2,7 @@ import os
 import sys
 import re
 import logging
+import json
 from multiprocessing import Pool
 import jobexcutor
 import workflowExample
@@ -22,6 +23,7 @@ class workflowResolver():
         self.check=0
         self.stat={}
         self.fq=[]
+        self.jsonOutput="workflow.json"
 
     def loadFqList(self, fqList):
         if fqList is None:
@@ -48,29 +50,26 @@ class workflowResolver():
         self.stat,self.fq=self.loadFqList(self.fqList)
         logging.info("running workflow : %s " % (workflowName))
         workflowparser=eval(workflowName).interface()
-        workflowparser.outdirMain=self.outdir
-        workflowparser.fqList=self.fq
-        workflowparser.fqLink=self.stat
-        workflowparser.ref=self.genome
+        allStep=workflowparser.step
         jsoncontent={}
         if dumpjson>0:
-            workflowparser.dumpjson()
+            self.dumpjson(allStep,workflowName)
         else:
             if workflowJson is None:
                 if self.check > 0 and self.genome is None :
                     logging.info(" Not enough input. workflow end.")
                     sys.exit()
                 logging.info("No inputjson!! using default setting to run the workflow. Or you can use makejson mode to make a json and modified if neccesary then use the inputjson parameter")
-                logging.info("writing default setting to %s" % (workflowparser.output))
-                workflowparser.dumpjson()
-                jsoncontent=workflowparser.loadjson()
+                logging.info("writing default setting to %s/%s" % (self.outdir,self.jsonOutput))
+                self.dumpjson(allStep,workflowName)
+                jsoncontent=self.loadjson()
             else:
                 try:
                     logging.info("loading setting in json : %s " % (workflowJson))
-                    jsoncontent=workflowparser.loadjson(inputfile=workflowJson)
+                    jsoncontent=self.loadjson(workflowJson)
                 except ValueError as e:
                     raise e
-            for stepL in workflowparser.step:
+            for stepL in allStep:
                 jobConcurrent=[]
                 stepname=[]
                 for step in stepL:
@@ -172,6 +171,38 @@ class workflowResolver():
             rcCode=1
         return rcCode
     
+    def dumpjson(self,allStep,workflowName):
+        output="%s/%s" % (self.outdir,self.jsonOutput)
+        try:
+            out=open(output,mode='w')
+        except IOError as e:
+            raise e
+        allJson={}
+        for stepa in allStep:
+            for stepb in stepa:
+                getStep=eval(workflowName+"."+stepb)
+                getStepDone=getStep()
+                getStepDone.outdirMain=self.outdir
+                getStepDone.fqList=self.fq
+                getStepDone.fqLink=self.stat
+                getStepDone.ref=self.genome
+                getStepDone.outdir=getStepDone.outdirMain+"/"+getStepDone.outdir
+                default=getStepDone.makedefault(self.fqList)
+                allJson[stepb]=default
+        allJson["ref"]=self.genome
+        allJson["outdir"]=self.outdir
+        json.dump(allJson,out,indent=4)
+        out.close()
+
+    def loadjson(self, inputjson=None):
+        inputfile="%s/%s" % (self.outdir,self.jsonOutput)
+        if inputjson is not None:
+            inputfile=inputjson
+        try:
+            jsondict=json.load(open(inputfile,mode='r'))
+        except IOError as e:
+            raise e
+        return jsondict
                 
 
 
