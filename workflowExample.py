@@ -172,6 +172,7 @@ class interface(common):
                     astep=eval(step)
                     astepo=astep()
                     astepo.fqLink=self.fqLink
+                    astepo.ref=self.ref
                     stepdict = json.dumps(astepo.makedefault(self.fqList))
                     #stepdict = json.dumps(astepjson)
                     out.write("\"%s\":%s,\n" % (step,stepdict))
