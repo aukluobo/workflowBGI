@@ -187,7 +187,7 @@ class workflowResolver():
                 getStepDone.fqLink=self.stat
                 getStepDone.ref=self.genome
                 getStepDone.outdir=getStepDone.outdirMain+"/"+getStepDone.outdir
-                default=getStepDone.makedefault(self.fqList)
+                default=getStepDone.makedefault(self.fq)
                 allJson[stepb]=default
         allJson["ref"]=self.genome
         allJson["outdir"]=self.outdir
