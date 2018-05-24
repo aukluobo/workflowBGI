@@ -7,6 +7,7 @@ class common(object):
     def __init__(self):
         self.fqList=['need_fq1','need_fq2']
         self.fqLink={}
+        self.species={}
         self.outdirMain=os.path.abspath('.')
         self.ref="/ldfssz1/BC_WGS/pipeline/DNA_Human_WGS_2017b/Database/hg19/hg19.fasta"
 
@@ -126,14 +127,15 @@ class alignment(common):
             if len(readc)==2:
                 fq1=keys[readc[0]]
                 outprefix=os.path.basename(fq1).split('.')
-                parameter1=self.parameter[0].replace("test",outprefix[0]).replace("lib",self.fqLink[outprefix[0]][1]).replace("sampleid",self.fqLink[outprefix[0]][0])
+                gg=re.sub(r'_\d$',r'',outprefix[0])
+                parameter1=self.parameter[0].replace("test",gg).replace("lib",self.fqLink[gg][1]).replace("sampleid",self.fqLink[gg][0])
                 parameter.append(parameter1)
                 outputbam="%s/%s.bam" % (self.outdir,outprefix[0])
                 output+=[outputbam,outputbam+".sort.bam"]
         fi=filter()
         fi.outdir=self.outdir
-        out1,inputq=fi.makeCommand(inputfq)
-        default={'input':inputq,'parameter':parameter,'program':self.program,'resource':"12G,8CPU",'output':output}
+        out1,inputqs=fi.makeCommand(inputfq)
+        default={'input':inputqs,'parameter':parameter,'program':self.program,'resource':"12G,8CPU",'output':output}
         return default                        
 class piler(common):
     def __init__(self, parameter_list):
