@@ -6,7 +6,7 @@ import json
 from multiprocessing import Pool
 import jobexcutor
 import workflowExample
-import Repeat_Annotation
+import Repeat_Annotation,WGS,RNAseq
 
 logging.getLogger().setLevel(logging.INFO)
 logging.basicConfig(format='%(asctime)s %(message)s')
@@ -20,6 +20,7 @@ class workflowResolver():
         self.project=None
         self.fqList=None
         self.genome=None
+        self.species={}
         self.check=0
         self.stat={}
         self.fq=[]
@@ -41,7 +42,7 @@ class workflowResolver():
                 linep=line.split()
                 fq1=linep[2]
                 fq1base=os.path.basename(fq1)
-                fq1prefix=re.sub(r'\..*$',r'',fq1base)
+                fq1prefix=re.sub(r'_\d\..*$',r'',fq1base)
                 stat[fq1prefix]=linep
                 fq+=[linep[2],linep[3]]
             return stat,fq
@@ -112,6 +113,7 @@ class workflowResolver():
         stepc.parameter=jsoncontent[step]['parameter']
         stepc.program=jsoncontent[step]['program']
         stepc.outdirMain=jsoncontent['outdir']
+        stepc.species=self.species
         stepc.fqList=self.fq
         stepc.fqLink=self.stat
         stepc.ref=self.genome
@@ -121,7 +123,7 @@ class workflowResolver():
             #logging.info("%s not exists" % ("\t".join(jsoncontent[step]['input'])))
             sys.exit()
         commandshell,out=stepc.makeCommand(jsoncontent[step]['input'])
-        logging.info("output:\n"+out)
+        logging.info("output: %s\n" % (out))
         runjob=jobexcutor.jobexecutor()
         runjob.outdir=stepc.outdirMain
         runjob.input=runjob.outdir+"/state/"+step+"state.json"
