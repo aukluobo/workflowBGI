@@ -24,11 +24,12 @@ class jobexecutor:
         self.partAll=[]
     
     def runclusterjob(self,commandshell=None,jobname=None):
-        self.input=self.outdir+"/state/"+self.input
+        #self.input=self.outdir+"/state/"+self.input
         self.output=self.input
+        useCommand=commandshell
         if commandshell is None:
-            takecommand=self.command
-        takecommand,part=self.makeRunCommand(commandshell)
+            useCommand=self.command
+        takecommand,part=self.makeRunCommand(useCommand)
         for i in range(1,part+1,1):
             self.partAll.append(str(i))
         usedjobname=jobname
@@ -41,24 +42,27 @@ class jobexecutor:
             globalcode=1
             if usedjobname in statedict:
                 prejobidPart=statedict[usedjobname]
-                prejobid,partRecord=prejobidPart.split('-')
-                partRecordCheck=partRecord.split(',')
-                shellcode=self.checkshell(takecommand,"%s/shell/%s/%s.sh" % (self.outdir,jobname,jobname))
-                #check previous shell and current shell if different,then kill job and run new shell
-                #if shell code is not the same then need to rerun de job anyway
-                if shellcode==1:
-                    self.killjob(prejobid)
-                    if prejobid != 'completed':
-                        logging.info("kill previous %s" % (usedjobname))
+                if prejobidPart == 'completed':
+                    globalcode=0
                 else:
-                    if prejobid == 'completed':
-                        globalcode=0
+                    prejobid,partRecord=prejobidPart.split('-')
+                    partRecordCheck=partRecord.split(',')
+                    shellcode=self.checkshell(takecommand,"%s/shell/%s/%s.sh" % (self.outdir,jobname,jobname))
+                    #check previous shell and current shell if different,then kill job and run new shell
+                    #if shell code is not the same then need to rerun de job anyway
+                    if shellcode==1:
+                        self.killjob(prejobid)
+                        if prejobid != 'completed':
+                            logging.info("kill previous %s" % (usedjobname))
                     else:
-                        palivecode=self.checkalive(prejobid)
-                        if palivecode==0:
-                            globalcode,unfinishPart=self.checkcomplete(prejobid,partRecordCheck,usedjobname)
-                            if unfinishPart:
-                                self.partAll=unfinishPart
+                        if prejobid == 'completed':
+                            globalcode=0
+                        else:
+                            palivecode=self.checkalive(prejobid)
+                            if palivecode==0:
+                                globalcode,unfinishPart=self.checkcomplete(prejobid,partRecordCheck,usedjobname)
+                                if unfinishPart:
+                                    self.partAll=unfinishPart
                                     
                            
             while(globalcode > 0):
@@ -86,7 +90,7 @@ class jobexecutor:
                     else:
                         self.killjob(jobid)
             if globalcode==0:
-                statedict[usedjobname]='completed'
+                statedict[usedjobname]='completed-'
             self.dumpjson(statedict)
         elif statedict['control'] == 'hold':
             self.hodljob()
@@ -164,18 +168,21 @@ class jobexecutor:
                     cu=0
                     jobcu+=1
         else:
-            lineM="if [ $SGE_TASK_ID -eq 1 ];then %s && echo JobFinished $SGE_TASK_ID;fi" % (command)
+            lineM="if [ $SGE_TASK_ID -eq 1 ];then %s && echo JobFinished $SGE_TASK_ID;fi" % (commandLine[0])
             modifiedCmd.append(lineM)
         return "\n".join(modifiedCmd),len(modifiedCmd)
 
 
     def checkshell(self, newshell,oldshellfile):
+        #logging.info(oldshellfile)
         oldshell=open(oldshellfile,mode='r').readlines()
         totalshell=''
-        for line in oldshell[0:-1]:
+        for line in oldshell:
+            #logging.info(line)
             totalshell+=re.sub(r'\s+',r'',line)
         tnewshell=re.sub(r'\s+',r'',newshell)
         if tnewshell != totalshell:
+            logging.info("%s\nNOT EUQAL%s\n" % (tnewshell,totalshell))
             return 1
         else:
             return 0
@@ -233,28 +240,32 @@ class jobexecutor:
                                 stderr=stat.stderr.read()
                                 if re.match(r'Following',stderr):
                                     cplcode=0
+                                elif stderr:
+                                    #some kind of sge error
+                                    pass
                                 else:
                                     usageAll=[x for x in stdout if re.match(r'usage',x)]
                                     for line in usageAll:
                                         aa=line.split()
                                         livevf=re.findall(r'vmem=\d+\.\d+.',line)
-                                        livevfs=livevf[0].replace('vmem=','')
-                                        vmem=float(livevfs[0:-1])
-                                        if livevfs[-1] == 'M':
-                                            vmem/=1024
-                                        if vmem >self.vf*1.5 or vmem >self.vf+5:
-                                            try:
-                                                counttime[aa[1]]+=120
-                                            except:
-                                                counttime[aa[1]]=120
-                                        else:
-                                            counttime[aa[1]]=0
-                                        if counttime[aa[1]] >= 1200:
-                                            newvf=vmem*1.5
-                                            logging.info("jobid %s have break memory for 20min : set %d G used %d G; kill and reqsub new vf %s G" % (sgejobid,self.vf,vmem,newvf))
-                                            self.vf=newvf
-                                            cplcode=1
-                                            break
+                                        if livevf:
+                                            livevfs=livevf[0].replace('vmem=','')
+                                            vmem=float(livevfs[0:-1])
+                                            if livevfs[-1] == 'M':
+                                                vmem/=1024
+                                            if vmem >self.vf*1.5 or vmem >self.vf+5:
+                                                try:
+                                                    counttime[aa[1]]+=120
+                                                except:
+                                                    counttime[aa[1]]=120
+                                            else:
+                                                counttime[aa[1]]=0
+                                            if counttime[aa[1]] >= 1200:
+                                                newvf=vmem*1.5
+                                                logging.info("jobid %s have break memory for 20min : set %d G used %d G; kill and reqsub new vf %s G" % (sgejobid,self.vf,vmem,newvf))
+                                                self.vf=newvf
+                                                cplcode=1
+                                                break
                         else:
                             pass
                     else:
@@ -282,6 +293,7 @@ class jobexecutor:
                     if re.match(r'Following',stderr):
                         for part in jobpart:
                             shelldir="%s/shell/%s/%s.sh.o%s.%s" % (self.outdir,jobname,jobname,jobid,part)
+                            shellerr="%s/shell/%s/%s.sh.e%s.%s" % (self.outdir,jobname,jobname,jobid,part)
                             try:
                                 alllog=open(shelldir,mode='r').readlines()
                                 if re.match(r'JobFinished',alllog[-1]):
@@ -293,6 +305,14 @@ class jobexecutor:
                             except:
                                 uncpPart.append(part)
                                 cplcode=1
+                            try:
+                                allerr=open(shellerr,mode='r').readlines()
+                                for x in allerr:
+                                    if re.search(r'Segmentation fault',x):
+                                        cplcode=-1
+                                        logging.info("Job %s with Jobid %s in fatal error;check %s for detail" % (jobname,jobid,shellerr))
+                            except:
+                                pass
                     elif re.match(r'========',stdout[0]):
                         pass
                     else:
