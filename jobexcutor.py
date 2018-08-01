@@ -30,6 +30,7 @@ class jobexecutor:
         if commandshell is None:
             useCommand=self.command
         takecommand,part=self.makeRunCommand(useCommand)
+        self.partAll=[]
         for i in range(1,part+1,1):
             self.partAll.append(str(i))
         usedjobname=jobname
@@ -62,7 +63,10 @@ class jobexecutor:
                             if palivecode==0:
                                 globalcode,unfinishPart=self.checkcomplete(prejobid,partRecordCheck,usedjobname)
                                 if unfinishPart:
-                                    self.partAll=unfinishPart
+                                    uniquePart={}
+                                    for pp in unfinishPart:
+                                        uniquePart[pp]=1
+                                    self.partAll=uniquePart.keys()
                                     
                            
             while(globalcode > 0):
@@ -86,7 +90,10 @@ class jobexecutor:
                     if alivecode==0:
                         globalcode,unfinishParta=self.checkcomplete(jobid,self.partAll,usedjobname)
                         if unfinishParta:
-                            self.partAll=unfinishParta
+                            uniqueParta={}
+                            for ppp in unfinishParta:
+                                uniqueParta[ppp]=1
+                            self.partAll=uniqueParta.keys()
                     else:
                         self.killjob(jobid)
             if globalcode==0:
@@ -108,7 +115,7 @@ class jobexecutor:
         out.write(commandshell)
         out.close()
         part=",".join(self.partAll)
-        qsubcommand="qsub -terse -N %s.sh -t %s -wd %s -l vf=%sG,num_proc=%d -q %s " % (jobname,part,shelldir,self.vf,self.cpu,self.queue)
+        qsubcommand="qsub -clear -terse -N %s.sh -t %s -wd %s -l vf=%sG,num_proc=%d -binding linear:%d -q %s " % (jobname,part,shelldir,self.vf,self.cpu,self.cpu,self.queue)
         if self.project is not None:
             qsubcommand+="-P %s" % (self.project)
         qsubcommand+=" %s/%s.sh" % (shelldir,jobname)
@@ -151,6 +158,7 @@ class jobexecutor:
         commandLine=re.sub(r'\s+$',r'',command).split('\n')
         commandLineNum=len(commandLine)
         modifiedCmd=[]
+        jobcu=1
         if commandLineNum > 1:
             partNum=1
             if commandLineNum >self.lineSplit:
@@ -159,18 +167,25 @@ class jobexecutor:
                 if self.lineSplit != 100:
                     partNum=self.lineSplit
             cu=0
-            jobcu=1
+            
             for line in commandLine:
-                lineM="if [ $SGE_TASK_ID -eq %d ];then %s && echo JobFinished $SGE_TASK_ID;fi" % (jobcu,line)
+                bline=re.sub(r'\s+$',r'',line)
+                cline=re.sub(r';+$',r'',bline)
+                lineM="if [ $SGE_TASK_ID -eq %d ];then { %s ; } && echo JobFinished $SGE_TASK_ID;fi" % (jobcu,cline)
                 modifiedCmd.append(lineM)
                 cu+=1
                 if cu >= partNum:
                     cu=0
                     jobcu+=1
         else:
-            lineM="if [ $SGE_TASK_ID -eq 1 ];then %s && echo JobFinished $SGE_TASK_ID;fi" % (commandLine[0])
+            bsline=re.sub(r'\s+$',r'',commandLine[0])
+            btline=re.sub(r';+$',r'',bsline)
+            lineM="if [ $SGE_TASK_ID -eq 1 ];then { %s ; } && echo JobFinished $SGE_TASK_ID;fi" % (btline)
             modifiedCmd.append(lineM)
-        return "\n".join(modifiedCmd),len(modifiedCmd)
+            jobcu+=1
+        spart=jobcu-1
+        logging.info("%d line(s) in this step" % (spart))
+        return "\n".join(modifiedCmd),spart
 
 
     def checkshell(self, newshell,oldshellfile):
