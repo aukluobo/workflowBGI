@@ -6,7 +6,7 @@ import json
 from multiprocessing import Pool
 import jobexcutor
 import workflowExample
-import Repeat_Annotation,WGS,RNAseq
+import Repeat_Annotation,WGS,RNAseq,RNAdenovo,RNAref
 
 logging.getLogger().setLevel(logging.INFO)
 logging.basicConfig(format='%(asctime)s %(message)s')
@@ -134,9 +134,15 @@ class workflowResolver():
         runjob.project=self.project
         expectLine=len(commandshell)
         logging.info("expect %d commandline in step %s " % (expectLine,step))
+        substep=1
         for subCommandShell in commandshell:
+            pstep="%s.%d" % (step,substep)
+            if len(commandshell)==1:
+                pstep=step
+            substep+=1
+            print(subCommandShell)
             runjob.command=subCommandShell
-            runjob.runclusterjob(subCommandShell,step)
+            runjob.runclusterjob(subCommandShell,pstep)
         outputcode=self.checkOutput(jsoncontent[step]['output'])
         if outputcode:
             print(step+" failed")
@@ -188,6 +194,7 @@ class workflowResolver():
                 getStepDone.fqList=self.fq
                 getStepDone.fqLink=self.stat
                 getStepDone.ref=self.genome
+                getStepDone.species=self.species
                 getStepDone.outdir=getStepDone.outdirMain+"/"+getStepDone.outdir
                 default=getStepDone.makedefault(self.fq)
                 allJson[stepb]=default
